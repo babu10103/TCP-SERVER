@@ -6,17 +6,28 @@ import (
 	"time"
 )
 
-func do(conn net.Conn) {
+const (
+	maxThreads = 10
+)
+
+func handleConnection(conn net.Conn, sem chan struct{}) {
+	// release semaphore slot when done
+	defer func() {
+		<-sem
+		conn.Close()
+	}()
+
 	buf := make([]byte, 1024)
+
 	_, err := conn.Read(buf)
 	if err != nil {
-		log.Fatal("Error")
+		log.Println("Error reading from connection:", err)
+		return
 	}
-	time.Sleep(1 * time.Second)
+
+	log.Println("Processing the request...")
+	time.Sleep(5 * time.Second)
 	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\nHello World!\r\n"))
-
-	conn.Close()
-
 }
 
 func main() {
@@ -27,6 +38,8 @@ func main() {
 		return
 	}
 
+	sem := make(chan struct{}, maxThreads)
+
 	for {
 		log.Println("Waiting for client to connect...")
 		conn, err := listener.Accept()
@@ -34,8 +47,9 @@ func main() {
 			log.Fatal("Error while getting connection object")
 			return
 		}
-		log.Println("Connected successfully.")
-		go do(conn)
+		// take a slot
+		sem <- struct{}{}
+		go handleConnection(conn, sem)
 	}
 }
 
