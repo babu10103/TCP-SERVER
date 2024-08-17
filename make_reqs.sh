@@ -1,4 +1,3 @@
-PORT=3000
 SERVER="localhost"
 PORT="3000"
 NUM_REQUESTS=5
